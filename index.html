@@ -1,0 +1,582 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Asal Sayı Avcısı</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+/* Layout: one-screen classroom board; the 10x10 hundred chart is the hero, divisor cards sit in a tray beneath it. Single deliberate light "glacier" look for projectors and smart boards. */
+:root {
+  --bg: #dcebf3;
+  --bg-deep: #c6dce9;
+  --ink: #12324a;
+  --ink-soft: #4b6a80;
+  --cell: #ffffff;
+  --line: #b4cfdf;
+  --ice-1: #e9f8ff;
+  --ice-2: #9fd6ee;
+  --ice-3: #5fb2d8;
+  --card: #f4a53c;
+  --card-deep: #c97a17;
+  --prime: #f4a53c;
+  --ok: #1f8a5b;
+  --err: #cf3d3d;
+  --font-display: "Baloo 2", "Trebuchet MS", "DejaVu Sans", sans-serif;
+  --font-body: "Atkinson Hyperlegible", "Segoe UI", "DejaVu Sans", Arial, sans-serif;
+  color-scheme: light;
+}
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body {
+  background: radial-gradient(120% 80% at 50% 0%, var(--ice-1) 0%, var(--bg) 55%, var(--bg-deep) 100%);
+  background-color: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  margin: 0;
+  -webkit-user-select: none; user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  overflow-x: hidden;
+}
+.app {
+  min-height: 100%;
+  box-sizing: border-box;
+  padding-inline: 16px;
+  padding-block: 10px 14px;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+}
+header {
+  width: 100%; max-width: 980px;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+}
+h1 {
+  font-family: var(--font-display); font-weight: 800;
+  font-size: clamp(1.4rem, 3.2vw, 2.1rem); line-height: 1; margin: 0;
+  letter-spacing: .01em;
+}
+h1 small {
+  display: block; font-family: var(--font-body); font-weight: 700;
+  font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft);
+  margin-bottom: 4px;
+}
+.controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.score {
+  font-family: var(--font-display); font-weight: 700; font-size: 1.05rem;
+  background: var(--cell); border: 2px solid var(--line); border-radius: 999px;
+  padding: 4px 14px; font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.score b { color: var(--ice-3); }
+button.ghost {
+  font: 700 .95rem var(--font-body); color: var(--ink);
+  background: var(--cell); border: 2px solid var(--line); border-radius: 999px;
+  padding: 6px 14px; cursor: pointer; min-height: 40px;
+}
+button.ghost:hover { border-color: var(--ice-3); }
+button:focus-visible, .tile:focus-visible, .cell:focus-visible { outline: 3px solid var(--card-deep); outline-offset: 2px; }
+
+.board-wrap { position: relative; }
+.board {
+  --size: min(calc(100vw - 32px), calc(100vh - 250px), 660px);
+  --size: min(calc(100vw - 32px), calc(100dvh - 250px), 660px);
+  width: max(var(--size), 280px); aspect-ratio: 1; max-width: 100%;
+  display: grid; grid-template-columns: repeat(10, 1fr); gap: 3px;
+  background: var(--line); padding: 3px; border-radius: 14px; box-sizing: border-box;
+  box-shadow: 0 10px 30px -12px rgba(18,50,74,.35);
+}
+.cell {
+  position: relative; background: var(--cell); border-radius: 6px;
+  display: grid; place-items: center; overflow: hidden;
+  font-family: var(--font-display); font-weight: 700;
+  font-size: calc(var(--size) / 24); line-height: 1; font-variant-numeric: tabular-nums;
+  color: var(--ink); cursor: pointer;
+  transition: background-color .25s, color .25s, transform .15s;
+}
+.cell.target { transform: scale(1.08); z-index: 2; box-shadow: 0 0 0 3px var(--card); }
+.cell.frozen {
+  color: rgba(18,50,74,.38);
+  background:
+    linear-gradient(135deg, rgba(255,255,255,.85) 0 12%, transparent 12% 40%, rgba(255,255,255,.55) 40% 46%, transparent 46%),
+    linear-gradient(160deg, var(--ice-1), var(--ice-2) 60%, var(--ice-3));
+  box-shadow: inset 0 0 0 2px rgba(255,255,255,.7), inset 0 -4px 8px rgba(40,120,170,.35);
+  cursor: default;
+}
+.cell.frozen::before, .cell.frozen::after {
+  content: ""; position: absolute; background: rgba(255,255,255,.9); border-radius: 2px;
+}
+.cell.frozen::before { width: 34%; height: 2px; top: 22%; right: 12%; transform: rotate(-35deg); }
+.cell.frozen::after { width: 2px; height: 26%; bottom: 14%; left: 22%; transform: rotate(20deg); }
+.cell.freezing { animation: freeze .5s ease-out; }
+@keyframes freeze {
+  0% { transform: scale(1); filter: brightness(1.6); }
+  40% { transform: scale(1.18); }
+  100% { transform: scale(1); filter: none; }
+}
+.cell.shake { animation: shake .38s; background: #ffe3e3; }
+@keyframes shake {
+  0%,100% { transform: translateX(0); }
+  20% { transform: translateX(-5px); } 40% { transform: translateX(5px); }
+  60% { transform: translateX(-4px); } 80% { transform: translateX(3px); }
+}
+.board.done .cell.prime {
+  background: linear-gradient(160deg, #fff4e0, #ffd798);
+  box-shadow: inset 0 0 0 3px var(--prime);
+  color: var(--ink); animation: glow 1.6s ease-in-out infinite alternate;
+}
+.board.done .cell.one {
+  background: linear-gradient(160deg, #f26b6b, var(--err));
+  box-shadow: inset 0 0 0 3px #a82727;
+  color: #fff;
+}
+@keyframes glow { from { filter: brightness(1); } to { filter: brightness(1.1); } }
+
+.message {
+  min-height: 1.6em; font-size: clamp(.95rem, 2vw, 1.15rem); font-weight: 700; text-align: center;
+  max-width: 60ch; color: var(--ink-soft); padding-inline: 8px;
+}
+.message.ok { color: var(--ok); }
+.message.err { color: var(--err); }
+
+.tray {
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 10px;
+  max-width: 900px; touch-action: none;
+}
+.tile {
+  width: clamp(48px, 7vw, 66px); aspect-ratio: 1; border-radius: 14px;
+  display: grid; place-items: center;
+  font-family: var(--font-display); font-weight: 800; font-size: clamp(1.4rem, 3vw, 2rem);
+  color: #3a2200; cursor: grab; touch-action: none;
+  background: linear-gradient(180deg, #ffc56e, var(--card));
+  box-shadow: 0 5px 0 var(--card-deep), 0 8px 14px -6px rgba(0,0,0,.35);
+  transition: transform .12s;
+}
+.tile { position: relative; }
+.tile:hover { transform: translateY(-2px); }
+@media (hover: hover) {
+  .tile[data-tip]:hover::after {
+    content: attr(data-tip);
+    position: absolute; bottom: calc(100% + 12px); left: 50%; transform: translateX(-50%);
+    width: max-content; max-width: 220px; white-space: normal; text-align: center;
+    background: var(--ink); color: #fff; border-radius: 10px; padding: 8px 12px;
+    font: 700 .95rem/1.3 var(--font-body); z-index: 30; pointer-events: none;
+    box-shadow: 0 8px 18px -8px rgba(0,0,0,.5);
+  }
+  .tile[data-tip]:hover::before {
+    content: ""; position: absolute; bottom: calc(100% + 4px); left: 50%; transform: translateX(-50%);
+    border: 8px solid transparent; border-top-color: var(--ink); border-bottom: 0; z-index: 30; pointer-events: none;
+  }
+  .tile.lifting::after, .tile.lifting::before, .ghost-tile::after, .ghost-tile::before { display: none; }
+}
+.tile.selected { transform: translateY(-4px); box-shadow: 0 5px 0 var(--card-deep), 0 0 0 4px var(--ink); }
+.tile.lifting { opacity: .35; }
+.ghost-tile {
+  position: fixed; left: 0; top: 0; pointer-events: none; z-index: 50; cursor: grabbing;
+  transform: translate(-50%, -60%) scale(1.15) rotate(-4deg);
+}
+.help { font-size: .88rem; color: var(--ink-soft); text-align: center; max-width: 70ch; margin: 0; }
+
+.overlay {
+  position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 16px;
+  background: rgba(18,50,74,.45);
+}
+.win {
+  background: var(--cell); border-radius: 20px; padding: 24px 22px; max-width: 540px; width: 100%;
+  box-sizing: border-box; text-align: center; box-shadow: 0 20px 60px -20px rgba(0,0,0,.5);
+}
+.win h2 { font-family: var(--font-display); font-weight: 800; font-size: 2rem; margin: 0 0 6px; text-wrap: balance; }
+.win p { margin: 8px 0; line-height: 1.45; }
+.primes { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin: 12px 0; }
+.primes span {
+  font-family: var(--font-display); font-weight: 700; font-size: 1.1rem; min-width: 2.2em; padding: 2px 6px;
+  border-radius: 8px; background: #fff1d6; box-shadow: inset 0 0 0 2px var(--prime);
+}
+.win .note { font-size: .92rem; color: var(--ink-soft); }
+.win .row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 14px; }
+button.primary {
+  font: 700 1rem var(--font-body); color: #3a2200; border: 0; border-radius: 999px;
+  padding: 10px 20px; cursor: pointer; min-height: 44px;
+  background: linear-gradient(180deg, #ffc56e, var(--card)); box-shadow: 0 4px 0 var(--card-deep);
+}
+/* ---------- intro ---------- */
+.intro {
+  position: fixed; inset: 0; z-index: 55; box-sizing: border-box;
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px 16px var(--intro-pad, 200px);
+  background: rgba(18,50,74,.55);
+}
+.intro-card {
+  background: var(--cell); border-radius: 24px; width: 100%; max-width: 640px; box-sizing: border-box;
+  padding: clamp(18px, 3vw, 30px); text-align: center;
+  box-shadow: 0 24px 60px -20px rgba(0,0,0,.55);
+  max-height: 100%; overflow: auto;
+}
+.intro-card h2 {
+  font-family: var(--font-display); font-weight: 800; margin: 0;
+  font-size: clamp(1.8rem, 4.5vw, 2.8rem); line-height: 1.05; text-wrap: balance;
+}
+.steps { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 10px; text-align: left; }
+.steps li {
+  display: grid; grid-template-columns: 2.2em 1fr; gap: 12px; align-items: center;
+  font-size: clamp(1.05rem, 2.4vw, 1.35rem); font-weight: 700; line-height: 1.3;
+}
+.steps li span {
+  width: 2.2em; height: 2.2em; border-radius: 50%; display: grid; place-items: center;
+  font-family: var(--font-display); font-weight: 800; color: #3a2200;
+  background: linear-gradient(180deg, #ffc56e, var(--card));
+}
+.demo {
+  position: relative; height: 96px; margin: 16px auto 4px; width: 260px; max-width: 100%;
+}
+.demo .d-cell, .demo .d-card {
+  position: absolute; width: 64px; height: 64px; border-radius: 12px;
+  display: grid; place-items: center; font-family: var(--font-display); font-weight: 800; font-size: 1.8rem;
+}
+.demo .d-cell {
+  right: 10px; top: 4px; background: var(--cell); color: var(--ink); box-shadow: inset 0 0 0 3px var(--line);
+  animation: d-freeze 3.2s infinite;
+}
+.demo .d-card {
+  left: 10px; top: 24px; color: #3a2200;
+  background: linear-gradient(180deg, #ffc56e, var(--card)); box-shadow: 0 5px 0 var(--card-deep);
+  animation: d-move 3.2s infinite; z-index: 1;
+}
+.demo .d-hand {
+  position: absolute; left: 52px; top: 56px; width: 26px; height: 26px; border-radius: 50%;
+  background: rgba(18,50,74,.25); border: 3px solid var(--ink); animation: d-move 3.2s infinite; z-index: 2;
+}
+@keyframes d-move {
+  0%, 12% { transform: translate(0, 0); opacity: 1; }
+  50%, 58% { transform: translate(176px, -20px); opacity: 1; }
+  66% { transform: translate(176px, -20px); opacity: 0; }
+  92% { transform: translate(0, 0); opacity: 0; }
+  100% { transform: translate(0, 0); opacity: 1; }
+}
+@keyframes d-freeze {
+  0%, 54% { background: var(--cell); color: var(--ink); }
+  62%, 90% { background: linear-gradient(160deg, var(--ice-1), var(--ice-2) 60%, var(--ice-3)); color: rgba(18,50,74,.4); }
+  100% { background: var(--cell); color: var(--ink); }
+}
+.demo-cap { margin: 0; color: var(--ink-soft); font-weight: 700; font-size: .98rem; }
+.intro .go { margin-top: 14px; font-size: 1.2rem; padding: 12px 30px; min-height: 52px; }
+.intro-arrow {
+  position: fixed; z-index: 57; left: 50%; transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 2px; pointer-events: none;
+  color: #fff; font: 800 clamp(1rem, 2.4vw, 1.3rem) var(--font-display);
+  text-shadow: 0 2px 6px rgba(0,0,0,.4);
+}
+.intro-arrow svg { width: 44px; height: 44px; animation: bob 1s ease-in-out infinite alternate; }
+@keyframes bob { from { transform: translateY(0); } to { transform: translateY(10px); } }
+body.intro-open .tray {
+  position: relative; z-index: 56; border-radius: 18px; padding: 10px;
+  background: rgba(255,255,255,.9); box-shadow: 0 0 0 4px var(--card), 0 0 30px 6px rgba(244,165,60,.6);
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cell, .tile { transition: none; }
+  .cell.freezing, .cell.shake, .board.done .cell.prime { animation: none; }
+  .demo .d-card, .demo .d-hand, .demo .d-cell, .intro-arrow svg { animation: none; }
+}
+@media (max-width: 520px) {
+  .board { --size: min(calc(100vw - 32px), 660px); }
+}
+</style>
+
+<div class="app">
+  <header>
+    <h1><small>6. sınıf · Matematik · 1. tema</small>Asal Sayı Avcısı</h1>
+    <div class="controls">
+      <div class="score" aria-live="polite">Buzlanan: <b id="count">0</b> / <span id="total">74</span></div>
+      <button class="ghost" id="soundBtn" type="button" aria-pressed="true">Ses: Açık</button>
+      <button class="ghost" id="helpBtn" type="button">Nasıl oynanır?</button>
+      <button class="ghost" id="resetBtn" type="button">Baştan başla</button>
+    </div>
+  </header>
+
+  <div class="board-wrap"><div class="board" id="board" role="grid" aria-label="1'den 100'e sayı tablosu"></div></div>
+
+  <div class="message" id="msg" aria-live="polite">Bir sayı kartını tutup tablodaki bir sayının üstüne bırak.</div>
+
+  <div class="tray" id="tray" aria-label="Bölen kartları"></div>
+  <p class="help">Sürükleyemiyorsan: önce karta dokun, sonra tablodaki sayıya dokun. Kart o sayıyı tam bölüyorsa sayı buzlanır. Asal sayılar hiç buzlanmaz.</p>
+</div>
+
+<div class="intro" id="intro" role="dialog" aria-modal="true" aria-labelledby="introTitle">
+  <div class="intro-card">
+    <h2 id="introTitle">Asal sayıları bulalım!</h2>
+    <div class="demo" aria-hidden="true">
+      <div class="d-cell">12</div>
+      <div class="d-card">2</div>
+      <div class="d-hand"></div>
+    </div>
+    <p class="demo-cap">Örnek: 12 ÷ 2 = 6, yani 2 kartı 12'yi buzlar.</p>
+    <ol class="steps">
+      <li><span>1</span>Aşağıdaki turuncu kartlardan birini tut.</li>
+      <li><span>2</span>Kartı tablodaki bir sayının üstüne götür ve bırak. Kart o sayıyı tam bölmeli.</li>
+      <li><span>3</span>Doğruysa sayı buzlanır. Asal sayılar hiç buzlanmaz!</li>
+    </ol>
+    <button class="primary go" id="goBtn" type="button">Hadi başlayalım!</button>
+  </div>
+</div>
+<div class="intro-arrow" id="introArrow" aria-hidden="true">
+  <span>Kartlar burada</span>
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v16M5 12l7 7 7-7"/></svg>
+</div>
+
+<div class="overlay" id="overlay" hidden>
+  <div class="win" role="dialog" aria-modal="true" aria-labelledby="winTitle">
+    <h2 id="winTitle">Tebrikler!</h2>
+    <p>Tablodaki <b>74 bileşik sayının</b> hepsini buzladın. Buzlanmayan sayılardan <b>25 tanesi asal sayı</b>:</p>
+    <div class="primes" id="primeList"></div>
+    <p class="note">Asal sayılar yalnızca 1'e ve kendisine bölünür. Tabloda kırmızıyla gösterilen <b>1</b> ise asal sayı değildir. 1 asal da değil, bileşik de değildir; bu yüzden o da buzlanmadı.</p>
+    <div class="row">
+      <button class="ghost" id="viewBtn" type="button">Tabloya bak</button>
+      <button class="primary" id="againBtn" type="button">Yeniden oyna</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var DIVISORS = [2, 3, 4, 5, 6, 7, 9, 10, 11, 13];
+  var TIPS = {
+    2: "Sonu çift olmalı",
+    3: "Rakamları toplamı 3'ün katı olmalı",
+    4: "Son 2 basamak 4'ün katı olmalı",
+    5: "Son basamak 0 ya da 5 olmalı",
+    6: "Hem 2'ye hem 3'e bölünmeli",
+    9: "Rakamları toplamı 9'un katı olmalı",
+    10: "Son basamak 0 olmalı"
+  };
+  // Turkish dative suffix for each divisor ("2'ye", "6'ya" ...)
+  var DAT = { 2: "'ye", 3: "'e", 4: "'e", 5: "'e", 6: "'ya", 7: "'ye", 8: "'e", 9: "'a", 10: "'a", 11: "'e", 13: "'e" };
+
+  function isPrime(n) {
+    if (n < 2) return false;
+    for (var i = 2; i * i <= n; i++) if (n % i === 0) return false;
+    return true;
+  }
+  var PRIMES = [];
+  for (var p = 2; p <= 100; p++) if (isPrime(p)) PRIMES.push(p);
+  var TOTAL = 100 - PRIMES.length - 1; // 74 composites
+
+  var board = document.getElementById("board");
+  var tray = document.getElementById("tray");
+  var msg = document.getElementById("msg");
+  var countEl = document.getElementById("count");
+  var overlay = document.getElementById("overlay");
+  document.getElementById("total").textContent = TOTAL;
+
+  var frozen = {};
+  var selected = null;
+  var soundOn = true;
+  var cells = [];
+
+  // ---------- sound (generated, no files needed) ----------
+  var ctx = null;
+  function ac() {
+    if (!ctx) { try { ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { ctx = null; } }
+    if (ctx && ctx.state === "suspended") ctx.resume();
+    return ctx;
+  }
+  function tone(freq, start, dur, type, vol, freqEnd) {
+    var c = ac(); if (!c || !soundOn) return;
+    var o = c.createOscillator(), g = c.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, c.currentTime + start);
+    if (freqEnd) o.frequency.exponentialRampToValueAtTime(freqEnd, c.currentTime + start + dur);
+    g.gain.setValueAtTime(0.0001, c.currentTime + start);
+    g.gain.exponentialRampToValueAtTime(vol, c.currentTime + start + 0.015);
+    g.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + start + dur);
+    o.connect(g); g.connect(c.destination);
+    o.start(c.currentTime + start); o.stop(c.currentTime + start + dur + 0.05);
+  }
+  function crackle() {
+    var c = ac(); if (!c || !soundOn) return;
+    var len = Math.floor(c.sampleRate * 0.18), buf = c.createBuffer(1, len, c.sampleRate), d = buf.getChannelData(0);
+    for (var i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3);
+    var s = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
+    f.type = "highpass"; f.frequency.value = 2500; g.gain.value = 0.25;
+    s.buffer = buf; s.connect(f); f.connect(g); g.connect(c.destination); s.start();
+  }
+  function sfxFreeze() { crackle(); tone(1568, 0, 0.25, "sine", 0.18); tone(2093, 0.06, 0.3, "sine", 0.14); tone(2637, 0.12, 0.35, "triangle", 0.08); }
+  function sfxError() { tone(180, 0, 0.32, "sawtooth", 0.16, 110); tone(186, 0, 0.32, "square", 0.06, 115); }
+  function sfxSoft() { tone(660, 0, 0.12, "sine", 0.08); }
+  function sfxWin() { [523, 659, 784, 1047, 784, 1047].forEach(function (f, i) { tone(f, i * 0.13, 0.3, "triangle", 0.16); }); }
+
+  // ---------- build ----------
+  function build() {
+    board.innerHTML = ""; tray.innerHTML = ""; cells = [];
+    for (var n = 1; n <= 100; n++) {
+      var c = document.createElement("div");
+      c.className = "cell" + (isPrime(n) ? " prime" : "") + (n === 1 ? " one" : "");
+      c.textContent = n; c.dataset.n = n; c.setAttribute("role", "gridcell"); c.tabIndex = -1;
+      board.appendChild(c); cells[n] = c;
+    }
+    DIVISORS.forEach(function (d) {
+      var t = document.createElement("div");
+      t.className = "tile"; t.textContent = d; t.dataset.d = d; t.tabIndex = 0;
+      t.setAttribute("role", "button");
+      t.setAttribute("aria-label", d + " kartı" + (TIPS[d] ? ". " + TIPS[d] : ""));
+      if (TIPS[d]) t.dataset.tip = TIPS[d];
+      tray.appendChild(t);
+    });
+    var pl = document.getElementById("primeList"); pl.innerHTML = "";
+    PRIMES.forEach(function (p) { var s = document.createElement("span"); s.textContent = p; pl.appendChild(s); });
+  }
+
+  function say(text, kind) { msg.textContent = text; msg.className = "message" + (kind ? " " + kind : ""); }
+  function updateCount() { countEl.textContent = Object.keys(frozen).length; }
+
+  function flash(cell, cls) {
+    cell.classList.remove(cls); void cell.offsetWidth; cell.classList.add(cls);
+    setTimeout(function () { cell.classList.remove(cls); }, 520);
+  }
+
+  // core rule
+  function attempt(d, n) {
+    var cell = cells[n];
+    if (frozen[n]) { sfxSoft(); say(n + " zaten buzlu. Başka bir sayı dene."); return "already"; }
+    if (n === 1) { sfxError(); flash(cell, "shake"); say("1, " + d + DAT[d] + " bölünmez. 1 asal da değil, bileşik de değil.", "err"); return "error"; }
+    if (isPrime(n)) {
+      sfxError(); flash(cell, "shake");
+      if (n % d === 0) say(n + " bir asal sayı! Yalnızca 1'e ve kendisine bölünür, buzlanamaz.", "err");
+      else say(n + ", " + d + DAT[d] + " tam bölünmez.", "err");
+      return "error";
+    }
+    if (n % d === 0) {
+      frozen[n] = true; cell.classList.add("frozen"); flash(cell, "freezing"); sfxFreeze();
+      say("Doğru! " + n + " ÷ " + d + " = " + (n / d), "ok"); updateCount();
+      if (Object.keys(frozen).length === TOTAL) setTimeout(win, 650);
+      return "frozen";
+    }
+    sfxError(); flash(cell, "shake"); say(n + ", " + d + DAT[d] + " tam bölünmez.", "err");
+    return "error";
+  }
+
+  function win() {
+    board.classList.add("done"); sfxWin();
+    say("Altın renkli sayılar asal sayılardır. Kırmızı 1 asal sayı değildir.", "ok");
+    overlay.hidden = false;
+    document.getElementById("againBtn").focus();
+  }
+
+  function reset() {
+    frozen = {}; selected = null; board.classList.remove("done"); overlay.hidden = true;
+    build(); updateCount(); say("Bir sayı kartını tutup tablodaki bir sayının üstüne bırak.");
+  }
+
+  function selectTile(t) {
+    Array.prototype.forEach.call(tray.children, function (x) { x.classList.remove("selected"); });
+    if (t && selected !== t) {
+      selected = t; t.classList.add("selected");
+      var tip = TIPS[t.dataset.d] ? " İpucu: " + TIPS[t.dataset.d] + "." : "";
+      say(t.dataset.d + " kartı seçildi." + tip + " Şimdi tablodan bir sayıya dokun.");
+    }
+    else { selected = null; }
+  }
+
+  // ---------- drag (pointer events: mouse, touch, pen, smart boards) ----------
+  var drag = null;
+  function cellAt(x, y) {
+    var el = document.elementFromPoint(x, y);
+    return el && el.closest ? el.closest(".cell") : null;
+  }
+  function setTarget(c) {
+    if (drag.target && drag.target !== c) drag.target.classList.remove("target");
+    drag.target = c; if (c && !c.classList.contains("frozen")) c.classList.add("target");
+  }
+  tray.addEventListener("pointerdown", function (e) {
+    var t = e.target.closest(".tile"); if (!t) return;
+    e.preventDefault(); ac();
+    drag = { tile: t, x0: e.clientX, y0: e.clientY, moved: false, ghost: null, target: null, id: e.pointerId };
+    try { t.setPointerCapture(e.pointerId); } catch (err) {}
+  });
+  window.addEventListener("pointermove", function (e) {
+    if (!drag || e.pointerId !== drag.id) return;
+    var dx = e.clientX - drag.x0, dy = e.clientY - drag.y0;
+    if (!drag.moved && dx * dx + dy * dy > 64) {
+      drag.moved = true;
+      var g = drag.tile.cloneNode(true); g.classList.remove("selected"); g.classList.add("ghost-tile");
+      document.body.appendChild(g); drag.ghost = g; drag.tile.classList.add("lifting");
+    }
+    if (drag.moved) {
+      drag.ghost.style.left = e.clientX + "px"; drag.ghost.style.top = e.clientY + "px";
+      setTarget(cellAt(e.clientX, e.clientY));
+    }
+  });
+  function endDrag(e, cancelled) {
+    if (!drag || e.pointerId !== drag.id) return;
+    var d = drag; drag = null;
+    if (d.ghost) d.ghost.remove();
+    d.tile.classList.remove("lifting");
+    if (d.target) d.target.classList.remove("target");
+    if (cancelled) return;
+    if (!d.moved) { selectTile(d.tile); return; }
+    var c = cellAt(e.clientX, e.clientY);
+    if (c) { selectTile(null); attempt(+d.tile.dataset.d, +c.dataset.n); }
+  }
+  window.addEventListener("pointerup", function (e) { endDrag(e, false); });
+  window.addEventListener("pointercancel", function (e) { endDrag(e, true); });
+
+  // tap-to-place
+  board.addEventListener("click", function (e) {
+    var c = e.target.closest(".cell"); if (!c) return;
+    if (!selected) { if (!c.classList.contains("frozen")) say("Önce aşağıdan bir kart seç ya da kartı sürükle."); return; }
+    attempt(+selected.dataset.d, +c.dataset.n);
+  });
+  // keyboard: Enter/Space on a tile selects it
+  tray.addEventListener("keydown", function (e) {
+    var t = e.target.closest(".tile"); if (!t) return;
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); ac(); selectTile(t); }
+  });
+
+  // ---------- intro ----------
+  var intro = document.getElementById("intro"), arrow = document.getElementById("introArrow");
+  function placeIntro() {
+    if (intro.hidden) return;
+    var r = tray.getBoundingClientRect();
+    var pad = Math.max(window.innerHeight - r.top + 64, 90);
+    // keep at least ~320px for the card on short screens
+    pad = Math.min(pad, Math.max(window.innerHeight - 340, 60));
+    intro.style.setProperty("--intro-pad", pad + "px");
+    arrow.style.top = Math.max(r.top - 74, 8) + "px";
+  }
+  function openIntro() {
+    intro.hidden = false; arrow.hidden = false; document.body.classList.add("intro-open");
+    placeIntro(); document.getElementById("goBtn").focus();
+  }
+  function closeIntro() {
+    intro.hidden = true; arrow.hidden = true; document.body.classList.remove("intro-open");
+    ac(); sfxSoft();
+    say("Bir sayı kartını tutup tablodaki bir sayının üstüne bırak.");
+  }
+  document.getElementById("goBtn").addEventListener("click", closeIntro);
+  document.getElementById("helpBtn").addEventListener("click", openIntro);
+  window.addEventListener("resize", placeIntro);
+
+  document.getElementById("resetBtn").addEventListener("click", reset);
+  document.getElementById("againBtn").addEventListener("click", reset);
+  document.getElementById("viewBtn").addEventListener("click", function () { overlay.hidden = true; });
+  document.getElementById("soundBtn").addEventListener("click", function () {
+    soundOn = !soundOn; this.textContent = "Ses: " + (soundOn ? "Açık" : "Kapalı");
+    this.setAttribute("aria-pressed", soundOn ? "true" : "false");
+  });
+
+  // expose for testing
+  window.__asal = { attempt: attempt, frozenCount: function () { return Object.keys(frozen).length; }, TOTAL: TOTAL };
+
+  function start(data) {
+    build();
+    if (data && data.frozen) {
+      frozen = data.frozen;
+      Object.keys(frozen).forEach(function (n) { cells[n].classList.add("frozen"); });
+      if (Object.keys(frozen).length === TOTAL) board.classList.add("done");
+    }
+    updateCount();
+    if (data && data.frozen && Object.keys(data.frozen).length) { intro.hidden = true; arrow.hidden = true; }
+    else openIntro();
+  }
+  if (window.claude && window.claude.hot && window.claude.hot.snapshot) {
+    try { window.claude.hot.snapshot(function () { return { frozen: frozen }; }); } catch (e) {}
+  }
+  if (window.claude && window.claude.hot && window.claude.hot.ready) window.claude.hot.ready(start);
+  else start((window.claude && window.claude.hot && window.claude.hot.data) || {});
+})();
+</script>
+
+</body></html>
